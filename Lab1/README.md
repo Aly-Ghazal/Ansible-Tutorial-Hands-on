@@ -21,7 +21,7 @@ install NGINX or apache on Machine and Configure it to listen on port 8084 then 
 
 ## Task 2
 
-install NGINX or apache on Machine and Configure it to listen on port 8084 then change the  default page to custom index.html on 2 machines
+Depot your Django app to one of those machines
 
 ### how to apply
 
