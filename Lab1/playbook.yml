@@ -1,0 +1,30 @@
+- name: configure webservers
+  hosts: webservers
+  become: true
+  tasks:
+   - name: install nginx
+     apt:
+      name: nginx
+      state: present
+      
+   - name: change nginx port
+     replace:
+       path: /etc/nginx/sites-enabled/default
+       regexp: '808484'
+       replace: "8084"
+
+   - name: move index file
+     copy:
+      src: ./index.html
+      dest: /usr/share/nginx/html 
+    
+   - name: move index file in different place
+     copy:
+       src: ./index.html
+       dest: /var/www/html 
+    
+   - name: restart nginx
+     service: 
+        name: nginx 
+        state: restarted 
+        enabled: yes
