@@ -1,0 +1,61 @@
+---
+# tasks file for SonarQube
+    - name: Downloading SonarQube version 7.9.6
+      get_url:
+        url: https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-{{ SonarQube_Version }}.zip
+        dest: ./sonarqube-{{ SonarQube_Version }}.zip
+        
+    - name: unarchive the sonarqube
+      unarchive:
+        remote_src: true
+        src: sonarqube-{{ SonarQube_Version }}.zip
+        dest: .
+    
+    - name: move sonarqube directory
+      shell: "mv sonarqube-{{ SonarQube_Version }} /opt/sonarqube"
+
+    - name: create sonar user
+      user:
+        user: sonar
+        group: sonar
+        home: /opt/sonarqube
+    
+    - name: change sonarqube directory owner to the newly created user
+      command: "chown -R sonar:sonar /opt/sonarqube"
+
+    - name: "Uncomment username line"
+      replace:
+        path: /opt/sonarqube/conf/sonar.properties
+        regexp: '#sonar.jdbc.username='
+        replace: 'sonar.jdbc.username=sonar'
+    
+    - name: "Uncomment password line"
+      replace:
+        path: /opt/sonarqube/conf/sonar.properties
+        regexp: '#sonar.jdbc.password='
+        replace: 'sonar.jdbc.password={{ Sonar_password }} \n sonar.jdbc.url=jdbc:postgresql://localhost:5432/sonarqube'
+
+    - name: "Uncomment RUN_AS_USER line"
+      replace:
+        path: /opt/sonarqube/bin/linux-x86-64/sonar.sh
+        regexp: '#RUN_AS_USER='
+        replace: 'RUN_AS_USER=sonar'
+
+    - name: create sonar systemd unit file
+      copy:
+        src: sonarService.txt
+        dest: /etc/systemd/system/sonar.service
+
+    - name: Start service sonar
+      service:
+          name: sonar
+          state: started
+          enabled: true
+
+    - name: Modify Kernel System Limits
+      copy:
+        src: KernalSystems.txt
+        dest: /etc/sysctl.conf
+    
+    - name: reboot the machine
+      reboot:

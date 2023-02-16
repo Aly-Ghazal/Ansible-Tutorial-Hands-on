@@ -1,0 +1,98 @@
+- name: Install Nexus
+  hosts: bastion
+  become: true
+  tasks: 
+    - name: update Packages first
+      apt:
+        update_cache: true
+
+    - name: install wget
+      apt:
+        name: wget
+        state: present
+
+    - name: install openJDK
+      apt:
+        name: openjdk-8-jdk
+        state: present
+        update_cache: true
+
+    - name: create app directory
+      file:
+        path: "/app"
+        state: directory
+
+    - name: Download nexus
+      get_url:
+        url: https://download.sonatype.com/nexus/3/latest-unix.tar.gz
+        dest: /app/nexus.tar.gz
+
+    - name: extract nexus
+      unarchive:
+        remote_src: true
+        src: /app/nexus.tar.gz
+        dest: /app
+
+    # - name: get nexus file
+    #   shell: "find * -name 'nexus-3*' "
+    #   register: nexus_file
+    #   args:
+    #     chdir: "~/app/"
+
+    - name: rename nexus directory
+      shell: "mv /app/nexus-3* /app/nexus"
+    #   #with_items: "{{nexus_file.stdout_lines}}"
+
+    # - name: copy nexus
+    #   copy:
+    #     src: ~/app/{{item}}/*
+    #     dest: ~/app/nexus
+    #     remote_src: true
+    #   with_items: "{{nexus_file.stdout_lines}}"
+    
+    # - name: delete old nexus file
+    #   file:
+    #     path: "~/app/{{item}}"
+    #     state: absent
+    #   with_items: "{{nexus_file.stdout_lines}}"
+
+    - name: add user for nexus
+      user:
+        name: nexus
+
+    - name: change nexus directory owner to the newly created user
+      command: "chown -R nexus:nexus /app/nexus"
+        
+      # file:
+      #   path: /app/nexus
+      #   owner: nexus
+      #   group: nexus
+      #   recurse: true
+
+    - name: change sonatype-work directory owner to the newly created user
+      command: "chown -R nexus:nexus /app/sonatype-work"
+        
+      # file:
+      #   path: /app/sonatype-work
+      #   owner: nexus
+      #   group: nexus
+      #   recurse: true
+
+    - name: "Uncomment the line"
+      replace:
+        path: /app/nexus/bin/nexus.rc
+        regexp: '#run_as_user=""'
+        replace: 'run_as_user="nexus"'
+
+    - name: create nexus systemd unit file
+      copy:
+        src: ./NexusSystemd.txt
+        dest: /etc/systemd/system/nexus.service
+        
+    
+    - name: Start service nexus
+      service:
+          name: nexus
+          state: started
+    
+    

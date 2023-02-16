@@ -1,0 +1,8 @@
+- name: TransferKey
+  hosts: BostionHost
+  tasks:
+   - name: key Transfering
+     copy:
+      src: ./ansible.pem
+      dest: ~/ 
+      

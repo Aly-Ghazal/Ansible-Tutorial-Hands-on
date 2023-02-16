@@ -1,0 +1,149 @@
+- name: Install SonarQube
+  hosts: bastion
+  become: true
+  tasks: 
+
+    - name: update Packages first
+      apt:
+        update_cache: true
+
+    - name: install Dependencies
+      apt:
+        name: 
+         - openjdk-11-jdk
+         - wget
+         - zip
+         - python3-pip
+         - python3-psycopg2
+        state: present
+        update_cache: true
+
+    - name: Add PostgreSQL repository
+      command: echo "deb http://apt.postgresql.org/pub/repos/apt/ lsb_release -cs-pgdg main" >> /etc/apt/sources.list.d/pgdg.list
+
+    - name: Add key to apt
+      apt_key:
+       url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+       state: present
+
+    - name: Install PostgreSQL
+      apt:
+        name: postgresql
+        state: present
+
+    - name: Install postgresql-contrib
+      apt:
+        name: postgresql-contrib
+        state: present
+
+    - name: Enable and start postgresql
+      service:
+          name: postgresql
+          enabled: true
+          state: started
+
+    - name: Change PostgreSQL password for postgres user
+      user:
+        name: postgres
+        password: "ali1234"
+
+    - name: Create the sonar user
+      user:
+        name: sonar
+        comment: "SonarQube User"
+
+    - name: Change line trust
+      replace:
+       path: /etc/postgresql/14/main/pg_hba.conf
+       regexp:  "local   all             postgres                                peer"
+       replace: "local   all             postgres                                trust"
+    
+    - name: Change line md5
+      replace:
+       path: /etc/postgresql/14/main/pg_hba.conf
+       regexp:  "local   all             all                                     peer"
+       replace: "local   all             all                                     md5"
+
+       
+    - name: Restart postgresql
+      become: true
+      service:
+        name: postgresql
+        state: restarted
+        enabled: true
+        
+    - name: Create the database  
+      postgresql_db:
+       login_user: postgres
+       login_password: "ali1234"
+       name: sonarqube 
+       template: 'template0'
+       state: present
+
+    - name: Create sonar user, and grant access
+      postgresql_user:
+        db: sonarqube
+        name: sonar
+        password: ali1234
+        priv: ALL
+        expires: infinity
+
+    - name: Downloading SonarQube version 7.9.6
+      get_url:
+        url: https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-7.9.6.zip
+        dest: ./sonarqube-7.9.6.zip
+        
+    - name: unarchive the sonarqube
+      unarchive:
+        remote_src: true
+        src: sonarqube-7.9.6.zip
+        dest: .
+    
+    - name: move sonarqube directory
+      shell: "mv sonarqube-7.9.6 /opt/sonarqube"
+
+    - name: create sonar user
+      user:
+        user: sonar
+        group: sonar
+        home: /opt/sonarqube
+    
+    - name: change sonarqube directory owner to the newly created user
+      command: "chown -R sonar:sonar /opt/sonarqube"
+
+    - name: "Uncomment username line"
+      replace:
+        path: /opt/sonarqube/conf/sonar.properties
+        regexp: '#sonar.jdbc.username='
+        replace: 'sonar.jdbc.username=sonar'
+    
+    - name: "Uncomment password line"
+      replace:
+        path: /opt/sonarqube/conf/sonar.properties
+        regexp: '#sonar.jdbc.password='
+        replace: 'sonar.jdbc.password=ali1234 \n sonar.jdbc.url=jdbc:postgresql://localhost:5432/sonarqube'
+
+    - name: "Uncomment RUN_AS_USER line"
+      replace:
+        path: /opt/sonarqube/bin/linux-x86-64/sonar.sh
+        regexp: '#RUN_AS_USER='
+        replace: 'RUN_AS_USER=sonar'
+
+    - name: create sonar systemd unit file
+      copy:
+        src: ./sonarService.txt
+        dest: /etc/systemd/system/sonar.service
+
+    - name: Start service sonar
+      service:
+          name: sonar
+          state: started
+          enabled: true
+
+    - name: Modify Kernel System Limits
+      copy:
+        src: ./KernalSystems.txt
+        dest: /etc/sysctl.conf
+    
+    - name: reboot the machine
+      reboot:

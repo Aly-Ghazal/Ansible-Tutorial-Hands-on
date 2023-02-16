@@ -1,0 +1,4 @@
+---
+# vars file for SonarQube
+SonarQube_Version: 7.9.6
+Sonar_password: ali1234
